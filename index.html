@@ -1,6 +1,4 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
+<!DOCTYPE html><html lang="ja"><head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>英検100本ノック V25</title>
@@ -31,13 +29,13 @@
         
         /* 回答エリア：高さを160pxに完全固定 */
         #answer-section { height: 160px; margin: 10px 0; padding: 15px; background: #fafafa; border-radius: 12px; border: 1px dashed #ccc; text-align: center; box-sizing: border-box; }
-        #answer-content { visibility: hidden; } /* 中身だけを隠す */
+        #answer-content { visibility: hidden; }
         
         #meaning { font-size: 1.6rem; font-weight: bold; color: #202124; margin-bottom: 8px; }
         #example-en { font-size: 0.9rem; color: var(--gray); font-style: italic; text-align: left; }
         #example-ja { font-size: 0.85rem; color: var(--primary); text-align: left; margin-top: 5px; font-weight: 500; }
         
-        /* ボタンスタック：高さを固定して中身を入れ替える */
+        /* ボタンスタック：高さを固定 */
         #action-area { width: 100%; height: 130px; margin-top: 10px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
         
         .main-btn { width: 100%; height: 60px; font-size: 1.2rem; }
@@ -57,11 +55,7 @@
         #result-msg { font-size: 1.2rem; font-weight: bold; margin: 15px 0 25px; }
         .result-actions { display: flex; flex-direction: column; gap: 12px; }
         .res-btn { width: 100%; padding: 1.1rem; font-size: 1.1rem; }
-    </style>
-</head>
-<body>
-
-<div id="app-container">
+    </style></head><body><div id="app-container">
     <div id="menu-view">
         <div class="menu-title">英検100本ノック</div>
         <div id="selection-area"></div>
@@ -99,6 +93,7 @@
         
         <div class="game-nav">
             <span class="nav-link" onclick="resetCurrentSession()">リセット</span>
+            <span id="nav-review-link" class="nav-link" style="color:var(--danger); display:none;" onclick="jumpToReview()">間違いを特訓</span>
             <span class="nav-link" onclick="confirmBackToMenu()">メニューへ</span>
         </div>
     </div>
@@ -108,18 +103,17 @@
         <div id="result-score">0%</div>
         <div id="result-msg">メッセージ</div>
         <div class="result-actions">
-            <button id="res-review-btn" class="btn res-btn" style="background:var(--danger); color:white;" onclick="startWrongMode()">間違いを復習する</button>
+            <button id="res-review-btn" class="btn res-btn" style="background:var(--danger); color:white;" onclick="jumpToReview()">間違いを復習する</button>
             <button class="btn res-btn" style="background:var(--primary); color:white;" onclick="backToMenu()">メニューへ戻る</button>
         </div>
-    </div>
-</div>
-
-<script src="word-data.js"></script>
-<script>
+    </div></div><script src="word-data.js"></script><script>
     let masterData = []; let currentQueue = []; let wrongList = [];
     let isReviewMode = false; let totalAttempted = 0; let correctCount = 0;
+    
+    // 中断復帰用のバックアップ
+    let backupState = null;
 
-    const categories = { 'pre2': '英検準2級', 'pre2plus': '英検準2級プラス', 'grade2': '英検2級' };
+    const categories = { 'pre2': '英検準2級' };
 
     function initMenu() {
         const selectionArea = document.getElementById('selection-area');
@@ -141,48 +135,89 @@
     };
 
     function prepareLearning() {
-        if (typeof wordDatabase === 'undefined') { alert("word-data.jsが見つかりません。"); return; }
+        if (typeof wordData === 'undefined') { alert("word-data.jsが見つかりません。"); return; }
         const selected = Array.from(document.querySelectorAll('#selection-area input:checked')).map(el => el.value);
         if (selected.length === 0) { alert("項目を選んでください。"); return; }
         let pool = [];
-        selected.forEach(key => { if (wordDatabase[key]) pool = pool.concat(wordDatabase[key]); });
+        selected.forEach(key => { if (wordData[key]) pool = pool.concat(wordData[key]); });
         
-        let weightedPool = pool.map(item => ({ item: item, score: Math.random() * (item.p || 1) }));
-        weightedPool.sort((a, b) => b.score - a.score);
-        masterData = weightedPool.slice(0, 100).map(x => x.item);
+        let shuffled = pool.sort(() => 0.5 - Math.random());
+        masterData = shuffled.slice(0, 100);
         
-        for (let i = masterData.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [masterData[i], masterData[j]] = [masterData[j], masterData[i]];
-        }
         startSession();
     }
 
     function startSession() {
         currentQueue = [...masterData]; wrongList = []; isReviewMode = false;
-        totalAttempted = 0; correctCount = 0;
+        totalAttempted = 0; correctCount = 0; backupState = null;
         document.getElementById('menu-view').style.display = 'none';
         document.getElementById('result-view').style.display = 'none';
         document.getElementById('game-view').style.display = 'block';
         updateDisplay();
     }
 
+    function jumpToReview() {
+        if (wrongList.length === 0) return;
+        
+        // 100問終了後の復習か、途中の特訓かを判定
+        const isMidGame = (totalAttempted < 100 && !isReviewMode);
+        
+        if (isMidGame) {
+            // 現在の状態をバックアップ
+            backupState = {
+                queue: [...currentQueue],
+                attempted: totalAttempted,
+                correct: correctCount
+            };
+        }
+        
+        currentQueue = [...wrongList]; 
+        wrongList = []; 
+        isReviewMode = true;
+        totalAttempted = 0; 
+        correctCount = 0;
+        
+        document.getElementById('result-view').style.display = 'none';
+        document.getElementById('game-view').style.display = 'block';
+        updateDisplay();
+    }
+
     function updateDisplay() {
+        // 特訓モード（復習中）が終了した時の処理
+        if (isReviewMode && currentQueue.length === 0) {
+            if (backupState) {
+                alert("特訓完了！中断した問題に戻ります。");
+                currentQueue = [...backupState.queue];
+                totalAttempted = backupState.attempted;
+                correctCount = backupState.correct;
+                isReviewMode = false;
+                backupState = null;
+                updateDisplay();
+                return;
+            } else {
+                // リザルトからの復習が完了した場合はリセット
+                alert("復習完了！"); backToMenu(); return;
+            }
+        }
+
+        // 通常モードが100問終了した時の処理
         if (!isReviewMode && totalAttempted >= 100) { showResult(); return; }
-        if (isReviewMode && currentQueue.length === 0) { alert("復習完了！"); backToMenu(); return; }
 
         const current = currentQueue[0];
         document.getElementById('word').innerText = current.w;
         document.getElementById('meaning').innerText = current.m;
-        document.getElementById('example-en').innerText = current.en;
-        document.getElementById('example-ja').innerText = current.ja;
+        document.getElementById('example-en').innerText = current.en || "";
+        document.getElementById('example-ja').innerText = current.ja || "";
         
-        document.getElementById('cur-idx').innerText = isReviewMode ? "特訓中" : totalAttempted + 1;
-        document.getElementById('wrong-count').innerText = wrongList.length;
+        document.getElementById('cur-idx').innerText = isReviewMode ? "特訓" : totalAttempted + 1;
+        document.getElementById('wrong-count').innerText = isReviewMode ? "-" : wrongList.length;
+        
         const acc = totalAttempted === 0 ? 0 : Math.round((correctCount / totalAttempted) * 100);
-        document.getElementById('realtime-acc').innerText = acc + "%";
+        document.getElementById('realtime-acc').innerText = isReviewMode ? "特訓中" : acc + "%";
 
-        // レイアウト固定：中身だけ消してボタンを初期状態に
+        // 特訓ボタンの表示制御
+        document.getElementById('nav-review-link').style.display = (!isReviewMode && wrongList.length > 0) ? "inline" : "none";
+
         document.getElementById('answer-content').style.visibility = 'hidden';
         document.getElementById('check-area').style.display = 'block';
         document.getElementById('judgement-buttons').style.display = 'none';
@@ -200,6 +235,7 @@
             totalAttempted++;
             if (isCorrect) { correctCount++; } else { wrongList.push(item); }
         } else {
+            // 特訓中は覚えるまで（正解するまで）リストの最後に回す
             if (!isCorrect) currentQueue.push(item);
         }
         updateDisplay();
@@ -231,7 +267,4 @@
         initMenu();
     }
 
-    initMenu();
-</script>
-</body>
-</html>
+    initMenu();</script></body></html>
