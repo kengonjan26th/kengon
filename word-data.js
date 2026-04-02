@@ -1,4 +1,4 @@
-const wordDatabase = {
+const wordData = {
     pre2_w: [
         // --- Part 1 (最重要：p3多め) ---
         {w: "achieve", m: "達成する", en: "She achieved her goal.", ja: "彼女は目標を達成した。", p: 3},
