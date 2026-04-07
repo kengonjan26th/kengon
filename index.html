@@ -235,4 +235,25 @@
         initMenu();
     }
     initMenu();
+// --- チェックボックスの状態を保存・復元する機能 ---
+  document.addEventListener("DOMContentLoaded", function() {
+    // 画面内のすべてのチェックボックスを取得
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    
+    checkboxes.forEach(checkbox => {
+      // 保存用のキーを作成（id、value、nameのいずれかを利用）
+      const key = "saved_checkbox_" + (checkbox.id || checkbox.value || checkbox.name);
+      
+      // 1. 起動時やメニューに戻った時に、保存されていた状態を復元
+      const savedState = localStorage.getItem(key);
+      if (savedState !== null) {
+        checkbox.checked = (savedState === "true");
+      }
+      
+      // 2. チェックが付け外しされるたびに、その状態を保存
+      checkbox.addEventListener("change", function() {
+        localStorage.setItem(key, this.checked);
+      });
+    });
+  });
 </script></body></html>
