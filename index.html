@@ -191,4 +191,68 @@
                 currentQueue = [...backupState.queue]; totalAttempted = backupState.attempted;
                 correctCount = backupState.correct; isReviewMode = false; backupState = null;
                 updateDisplay(); return;
-                
+            } else { alert("復習完了！"); backToMenu(); return; }
+        }
+        if (!isReviewMode && totalAttempted >= 100) { showResult(); return; }
+
+        const cur = currentQueue[0];
+        document.getElementById('word').innerText = cur.w;
+        document.getElementById('meaning').innerText = cur.m;
+        document.getElementById('example-en').innerText = cur.en || "";
+        document.getElementById('example-ja').innerText = cur.ja || "";
+        
+        document.getElementById('cur-idx').innerText = isReviewMode ? "特訓" : totalAttempted + 1;
+        document.getElementById('wrong-count').innerText = isReviewMode ? "-" : wrongList.length;
+        const acc = totalAttempted === 0 ? 0 : Math.round((correctCount / totalAttempted) * 100);
+        document.getElementById('realtime-acc').innerText = isReviewMode ? "特訓中" : acc + "%";
+        document.getElementById('nav-review-link').style.display = (!isReviewMode && wrongList.length > 0) ? "inline" : "none";
+
+        document.getElementById('meaning').style.visibility = 'hidden';
+        document.getElementById('example-ja').style.visibility = 'hidden';
+        document.getElementById('check-area').style.display = 'block';
+        document.getElementById('judgement-buttons').style.display = 'none';
+    }
+
+    function showAnswer() {
+        document.getElementById('meaning').style.visibility = 'visible';
+        document.getElementById('example-ja').style.visibility = 'visible';
+        document.getElementById('check-area').style.display = 'none';
+        document.getElementById('judgement-buttons').style.display = 'flex';
+    }
+
+    function handleResult(isCorrect) {
+        const item = currentQueue.shift();
+        if (!isReviewMode) {
+            totalAttempted++;
+            if (isCorrect) correctCount++; else wrongList.push(item);
+        } else { if (!isCorrect) currentQueue.push(item); }
+        updateDisplay();
+    }
+
+    function showResult() {
+        document.getElementById('game-view').style.display = 'none';
+        document.getElementById('result-view').style.display = 'block';
+        const acc = Math.round((correctCount / 100) * 100);
+        document.getElementById('result-score').innerText = acc + "%";
+        const box = document.getElementById('graphic-box');
+        const msg = document.getElementById('result-msg');
+        if (acc === 100) { box.innerHTML = graphics.perfect; msg.innerText = "完璧！マスター！"; }
+        else if (acc >= 80) { box.innerHTML = graphics.good; msg.innerText = "素晴らしい合格圏内！"; }
+        else { box.innerHTML = graphics.fight; msg.innerText = "復習して伸ばそう！"; }
+        document.getElementById('res-review-btn').style.display = wrongList.length > 0 ? "block" : "none";
+    }
+
+    function resetCurrentSession() { if (confirm("最初からリセットしますか？")) prepareLearning(); }
+    
+    function confirmBackToMenu() { if (confirm("メニューに戻りますか？")) backToMenu(); }
+    
+    // 【修正ポイント】メニューに戻る時に、無駄な「作り直し（initMenu）」をしないようにしました！
+    function backToMenu() {
+        document.getElementById('menu-view').style.display = 'block';
+        document.getElementById('game-view').style.display = 'none';
+        document.getElementById('result-view').style.display = 'none';
+    }
+    
+    // アプリを最初に開いた時だけ1回実行される
+    initMenu();
+</script></body></html>
